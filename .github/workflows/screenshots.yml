@@ -63,61 +63,24 @@ jobs:
 
           ls -la shots/
 
+      - name: Capture watch screenshot (embedded watch app)
+        run: |
+          WDEV=$(xcrun simctl list devices available | grep -oE "Apple Watch Ultra[^(]*" | head -1 | xargs)
+          [ -z "$WDEV" ] && WDEV=$(xcrun simctl list devices available | grep -oE "Apple Watch [^(]*" | head -1 | xargs)
+          echo "watch sim: $WDEV"
+          xcrun simctl boot "$WDEV" || true
+          xcrun simctl bootstatus "$WDEV" -b
+          WAPP="build/Build/Products/Debug-iphonesimulator/Aurora.app/Watch/AuroraWatch.app"
+          ls "$WAPP"
+          xcrun simctl install "$WDEV" "$WAPP"
+          xcrun simctl launch "$WDEV" com.assiamah.aurora.watchkitapp -shotTrip
+          sleep 8
+          xcrun simctl io "$WDEV" screenshot shots/4-watch-trip.png
+          ls -la shots/
+
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
           name: appstore-screenshots
           path: shots/*.png
-          if-no-files-found: error
-
-  watch-shots:
-    name: App Store screenshots (watch simulator)
-    runs-on: macos-26
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
-      - name: Generate Xcode project
-        run: xcodegen generate
-
-      - name: Pick watch simulator
-        id: sim
-        run: |
-          DEV=$(xcrun simctl list devices available | grep -oE "Apple Watch Ultra[^(]*" | head -1 | xargs)
-          [ -z "$DEV" ] && DEV=$(xcrun simctl list devices available | grep -oE "Apple Watch [^(]*" | head -1 | xargs)
-          echo "device=$DEV" >> "$GITHUB_OUTPUT"
-          echo "using: $DEV"
-
-      - name: Build watch app for simulator
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project Aurora.xcodeproj \
-            -scheme AuroraWatch \
-            -destination "generic/platform=watchOS Simulator" \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-
-      - name: Boot watch simulator & capture
-        run: |
-          xcrun simctl boot "${{ steps.sim.outputs.device }}" || true
-          xcrun simctl bootstatus "${{ steps.sim.outputs.device }}" -b
-          APP=$(find build/Build/Products -name "AuroraWatch.app" -maxdepth 2 | head -1)
-          xcrun simctl install "${{ steps.sim.outputs.device }}" "$APP"
-          mkdir -p watch-shots
-          BID=com.assiamah.aurora.watchkitapp
-
-          xcrun simctl launch "${{ steps.sim.outputs.device }}" $BID -shotTrip
-          sleep 8
-          xcrun simctl io "${{ steps.sim.outputs.device }}" screenshot watch-shots/1-watch-trip.png
-          ls -la watch-shots/
-
-      - name: Upload watch screenshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: appstore-watch-screenshots
-          path: watch-shots/*.png
           if-no-files-found: error
