@@ -97,7 +97,7 @@ jobs:
           xcodebuild build \
             -project Aurora.xcodeproj \
             -scheme AuroraWatch \
-            -destination "platform=watchOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -destination "generic/platform=watchOS Simulator" \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
 
