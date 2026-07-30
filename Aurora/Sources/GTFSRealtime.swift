@@ -73,6 +73,9 @@ enum ArrivalsService {
     /// Upcoming arrivals (seconds from now) for `route` at GTFS stop `stopId`
     /// heading `southbound` or not. Stop IDs in the RT feed carry an N/S suffix.
     static func arrivals(route: String, stopId: String, southbound: Bool) async throws -> [TimeInterval] {
+        if RouteStyle.isPATH(route) {
+            return try await pathArrivals(stopId: stopId, toNY: southbound)
+        }
         guard let url = feedURL(for: route) else { return [] }
         var req = URLRequest(url: url)
         req.timeoutInterval = 15
@@ -114,5 +117,45 @@ enum ArrivalsService {
             }
         }
         return result.sorted()
+    }
+
+    // MARK: - PATH (official RidePATH feed, free, no key)
+
+    private struct RidePath: Decodable {
+        struct Result: Decodable {
+            let consideredStation: String
+            let destinations: [Destination]
+        }
+        struct Destination: Decodable {
+            let label: String        // "ToNY" / "ToNJ"
+            let messages: [Message]
+        }
+        struct Message: Decodable {
+            let secondsToArrival: String
+            let headSign: String
+        }
+        let results: [Result]
+    }
+
+    private static let ridePathURL = URL(string: "https://www.panynj.gov/bin/portauthority/ridepath.json")!
+
+    /// Our PATH track order runs NJ end -> NY end, so "southbound" == toward NY.
+    static func pathArrivals(stopId: String, toNY: Bool) async throws -> [TimeInterval] {
+        var req = URLRequest(url: ridePathURL)
+        req.timeoutInterval = 15
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let feed = try JSONDecoder().decode(RidePath.self, from: data)
+        let wanted = toNY ? "ToNY" : "ToNJ"
+        var out: [TimeInterval] = []
+        for station in feed.results where station.consideredStation == stopId {
+            for dest in station.destinations where dest.label == wanted {
+                for msg in dest.messages {
+                    if let secs = TimeInterval(msg.secondsToArrival), secs > 0 {
+                        out.append(secs)
+                    }
+                }
+            }
+        }
+        return out.sorted()
     }
 }

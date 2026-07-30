@@ -17,6 +17,8 @@ struct ContentView: View {
 
 struct PlannerView: View {
     @EnvironmentObject var tripManager: TripManager
+    @EnvironmentObject var store: Store
+    @State private var showPaywall = false
     @State private var route = "A"
     @State private var from: Station?
     @State private var to: Station?
@@ -92,7 +94,12 @@ struct PlannerView: View {
                         .onChange(of: trip) { _, t in watchArrivals(for: t) }
                     HStack {
                         Button {
-                            tripManager.start(trip)
+                            if store.canStartTrip() {
+                                store.consumeTrip()
+                                tripManager.start(trip)
+                            } else {
+                                showPaywall = true
+                            }
                         } label: {
                             Label("Start Trip", systemImage: "location.fill")
                                 .frame(maxWidth: .infinity)
@@ -108,11 +115,21 @@ struct PlannerView: View {
                         .buttonStyle(.bordered)
                     }
                     .padding(.horizontal)
+
+                    if !store.isPro {
+                        Button {
+                            showPaywall = true
+                        } label: {
+                            Text("\(store.tripsLeftThisWeek) free trips left this week • Go Pro")
+                                .font(.caption)
+                        }
+                    }
                 }
             }
         }
         .padding(.vertical, 10)
         .background(.thinMaterial)
+        .sheet(isPresented: $showPaywall) { PaywallView() }
     }
 
     private func stationMenu(title: String, system: String, pick: @escaping (Station) -> Void) -> some View {

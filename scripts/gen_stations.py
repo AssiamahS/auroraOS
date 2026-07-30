@@ -44,9 +44,50 @@ def main():
         return (m.group(1), int(m.group(2)))
 
     out = {rt: sorted(stops, key=key) for rt, stops in routes.items()}
+    out.update(path_routes())
     with open(OUT, "w") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"wrote {OUT}: {len(rows)} stations, {len(out)} routes")
+
+
+def path_routes():
+    """PATH (Port Authority Trans-Hudson). Station ids are RidePATH codes so
+    the app can hit the official live feed (panynj.gov ridepath.json).
+    Order is NJ end -> NY end, matching the north->south convention."""
+    S = {
+        "NWK": ("Newark Penn Station", 40.73454, -74.16375),
+        "HAR": ("Harrison", 40.73925, -74.15555),
+        "JSQ": ("Journal Square", 40.73301, -74.06289),
+        "GRV": ("Grove Street", 40.71966, -74.04245),
+        "EXP": ("Exchange Place", 40.71634, -74.03297),
+        "WTC": ("World Trade Center", 40.71271, -74.01193),
+        "HOB": ("Hoboken", 40.73586, -74.02922),
+        "NEW": ("Newport", 40.72699, -74.03383),
+        "CHR": ("Christopher Street", 40.73295, -74.00707),
+        "09S": ("9th Street", 40.73424, -73.99910),
+        "14S": ("14th Street", 40.73735, -73.99684),
+        "23S": ("23rd Street", 40.74277, -73.99284),
+        "33S": ("33rd Street", 40.74912, -73.98827),
+    }
+    LINES = {
+        "P1": ["NWK", "HAR", "JSQ", "GRV", "EXP", "WTC"],          # Newark - WTC (red)
+        "P2": ["HOB", "NEW", "EXP", "WTC"],                        # Hoboken - WTC (green)
+        "P3": ["JSQ", "GRV", "NEW", "CHR", "09S", "14S", "23S", "33S"],  # JSQ - 33 St (yellow)
+        "P4": ["HOB", "CHR", "09S", "14S", "23S", "33S"],          # Hoboken - 33 St (blue)
+    }
+    return {
+        line: [{
+            "id": code,
+            "name": S[code][0],
+            "line": "PATH",
+            "borough": "NJ" if code in ("NWK", "HAR", "JSQ", "GRV", "EXP", "HOB", "NEW") else "M",
+            "lat": S[code][1],
+            "lon": S[code][2],
+            "north": "To New Jersey",
+            "south": "To New York",
+        } for code in codes]
+        for line, codes in LINES.items()
+    }
 
 
 if __name__ == "__main__":

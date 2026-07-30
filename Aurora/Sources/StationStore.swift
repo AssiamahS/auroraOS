@@ -11,7 +11,8 @@ final class StationStore {
     /// Routes worth showing in the picker, in NYC-conventional order.
     static let displayOrder = ["1", "2", "3", "4", "5", "6", "7",
                                "A", "C", "E", "B", "D", "F", "M",
-                               "G", "J", "Z", "L", "N", "Q", "R", "W", "S", "SIR"]
+                               "G", "J", "Z", "L", "N", "Q", "R", "W", "S", "SIR",
+                               "P1", "P2", "P3", "P4"]
 
     private init() {
         guard let url = Bundle.main.url(forResource: "Stations", withExtension: "json"),
