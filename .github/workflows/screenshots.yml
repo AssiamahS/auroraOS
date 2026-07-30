@@ -65,9 +65,10 @@ jobs:
 
       - name: Capture watch screenshot (embedded watch app)
         run: |
-          WDEV=$(xcrun simctl list devices available | grep -oE "Apple Watch Ultra[^(]*" | head -1 | xargs)
-          [ -z "$WDEV" ] && WDEV=$(xcrun simctl list devices available | grep -oE "Apple Watch [^(]*" | head -1 | xargs)
-          echo "watch sim: $WDEV"
+          # watch device names contain parens ("(49mm)") — address by UDID instead
+          WDEV=$(xcrun simctl list devices available | grep "Apple Watch Ultra" | head -1 | grep -oE "[0-9A-F-]{36}")
+          [ -z "$WDEV" ] && WDEV=$(xcrun simctl list devices available | grep "Apple Watch" | head -1 | grep -oE "[0-9A-F-]{36}")
+          echo "watch sim udid: $WDEV"
           xcrun simctl boot "$WDEV" || true
           xcrun simctl bootstatus "$WDEV" -b
           WAPP="build/Build/Products/Debug-iphonesimulator/Aurora.app/Watch/AuroraWatch.app"
