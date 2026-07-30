@@ -19,7 +19,7 @@ struct TripLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    bullet(context.attributes.route, size: 44)
+                    RouteBullet(route: context.attributes.route, size: 44)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
@@ -49,7 +49,7 @@ struct TripLiveActivity: Widget {
                         .padding(.horizontal, 8)
                 }
             } compactLeading: {
-                bullet(context.attributes.route, size: 22)
+                RouteBullet(route: context.attributes.route, size: 22)
             } compactTrailing: {
                 Text("\(context.state.stopsRemaining)")
                     .font(.system(.body, design: .rounded).bold())
@@ -71,13 +71,6 @@ struct TripLiveActivity: Widget {
         return Double(total - context.state.stopsRemaining) / Double(total)
     }
 
-    private func bullet(_ route: String, size: CGFloat) -> some View {
-        Text(route)
-            .font(.system(size: size * 0.55, weight: .bold, design: .rounded))
-            .foregroundStyle(RouteStyle.textColor(route))
-            .frame(width: size, height: size)
-            .background(Circle().fill(RouteStyle.color(route)))
-    }
 }
 
 struct LockScreenTripView: View {
@@ -89,11 +82,7 @@ struct LockScreenTripView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(context.attributes.route)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(RouteStyle.textColor(context.attributes.route))
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(RouteStyle.color(context.attributes.route)))
+            RouteBullet(route: context.attributes.route, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(getOff ? "GET OFF NEXT STOP" : "Next: \(context.state.nextStop)")
                     .font(.headline)
