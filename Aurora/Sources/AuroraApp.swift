@@ -12,7 +12,12 @@ struct AuroraApp: App {
             ContentView()
                 .environmentObject(tripManager)
                 .environmentObject(store)
-                .onAppear { showOnboarding = !onboarded }
+                .onAppear {
+                    let args = ProcessInfo.processInfo.arguments
+                    if args.contains("-shotOnboarding") { showOnboarding = true }
+                    else if args.contains(where: { $0.hasPrefix("-shot") }) { showOnboarding = false }
+                    else { showOnboarding = !onboarded }
+                }
                 .fullScreenCover(isPresented: $showOnboarding, onDismiss: { onboarded = true }) {
                     OnboardingView(isPresented: $showOnboarding)
                 }

@@ -29,6 +29,22 @@ struct PlannerView: View {
                            span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)))
 
     private var stops: [Station] { StationStore.shared.stations(on: route) }
+
+    /// Marketing-screenshot modes driven by launch arguments (CI simulator rig).
+    private func applyShotMode() {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("-shotPlanner") || args.contains("-shotTrip") else { return }
+        route = "A"
+        let line = StationStore.shared.stations(on: "A")
+        guard line.count > 20 else { return }
+        from = line[10]
+        to = line[18]
+        if args.contains("-shotTrip"), let trip = TripPlanner.plan(route: "A", from: line[10], to: line[18]) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                tripManager.start(trip, demo: true)
+            }
+        }
+    }
     private var trip: Trip? {
         guard let from, let to else { return nil }
         return TripPlanner.plan(route: route, from: from, to: to)
@@ -63,6 +79,7 @@ struct PlannerView: View {
             .navigationTitle("Aurora")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .onAppear(perform: applyShotMode)
     }
 
     private var controls: some View {

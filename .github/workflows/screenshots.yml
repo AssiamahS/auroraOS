@@ -1,0 +1,71 @@
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  shots:
+    name: App Store screenshots (simulator)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Pick simulator
+        id: sim
+        run: |
+          DEV=$(xcrun simctl list devices available | grep -oE "iPhone [0-9]+ Pro Max" | head -1)
+          [ -z "$DEV" ] && DEV=$(xcrun simctl list devices available | grep -oE "iPhone [^(]+" | head -1 | xargs)
+          echo "device=$DEV" >> "$GITHUB_OUTPUT"
+          echo "using: $DEV"
+
+      - name: Build for simulator
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project Aurora.xcodeproj \
+            -scheme Aurora \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }}" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+
+      - name: Boot simulator & capture
+        run: |
+          xcrun simctl boot "${{ steps.sim.outputs.device }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.device }}" -b
+          xcrun simctl status_bar "${{ steps.sim.outputs.device }}" override \
+            --time "9:41" --batteryState charged --batteryLevel 100 \
+            --cellularBars 4 --operatorName "" --wifiBars 3
+          APP=build/Build/Products/Debug-iphonesimulator/Aurora.app
+          xcrun simctl install "${{ steps.sim.outputs.device }}" "$APP"
+          mkdir -p shots
+          BID=com.assiamah.aurora
+
+          xcrun simctl launch "${{ steps.sim.outputs.device }}" $BID -shotPlanner
+          sleep 10   # map tiles + live arrivals fetch
+          xcrun simctl io "${{ steps.sim.outputs.device }}" screenshot shots/1-planner.png
+
+          xcrun simctl terminate "${{ steps.sim.outputs.device }}" $BID || true
+          xcrun simctl launch "${{ steps.sim.outputs.device }}" $BID -shotTrip
+          sleep 22   # demo trip advances a few stops
+          xcrun simctl io "${{ steps.sim.outputs.device }}" screenshot shots/2-trip.png
+
+          xcrun simctl terminate "${{ steps.sim.outputs.device }}" $BID || true
+          xcrun simctl launch "${{ steps.sim.outputs.device }}" $BID -shotOnboarding
+          sleep 6
+          xcrun simctl io "${{ steps.sim.outputs.device }}" screenshot shots/3-onboarding.png
+
+          ls -la shots/
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: appstore-screenshots
+          path: shots/*.png
+          if-no-files-found: error
