@@ -1,0 +1,31 @@
+name: Refresh station data
+
+on:
+  schedule:
+    - cron: '17 9 * * 1'   # mondays 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate Stations.json from MTA dataset
+        run: python3 scripts/gen_stations.py
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet; then
+            echo "station data unchanged"
+            exit 0
+          fi
+          git config user.name "$(git log -1 --pretty=%an)"
+          git config user.email "$(git log -1 --pretty=%ae)"
+          git add Aurora/Resources/Stations.json data/mta_stations.csv
+          git commit -m "chore: refresh mta station data"
+          git push

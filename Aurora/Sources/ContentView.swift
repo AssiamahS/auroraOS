@@ -20,6 +20,8 @@ struct PlannerView: View {
     @State private var route = "A"
     @State private var from: Station?
     @State private var to: Station?
+    @State private var arrivals: [TimeInterval] = []
+    @State private var arrivalsTask: Task<Void, Never>?
     @State private var camera: MapCameraPosition = .region(
         MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 40.7549, longitude: -73.984),
                            span: MKCoordinateSpan(latitudeDelta: 0.35, longitudeDelta: 0.35)))
@@ -85,8 +87,9 @@ struct PlannerView: View {
 
             if let trip {
                 VStack(spacing: 8) {
-                    Text("\(trip.totalStops) stops • \(trip.directionLabel)")
-                        .font(.subheadline).foregroundStyle(.secondary)
+                    BoardingCard(trip: trip, arrivals: arrivals)
+                        .onAppear { watchArrivals(for: trip) }
+                        .onChange(of: trip) { _, t in watchArrivals(for: t) }
                     HStack {
                         Button {
                             tripManager.start(trip)
@@ -139,6 +142,54 @@ struct PlannerView: View {
 
     private func markerSize(for s: Station) -> CGFloat {
         (s == from || s == to) ? 18 : 10
+    }
+
+    /// Refresh live arrivals for the boarding station every 30 s.
+    private func watchArrivals(for trip: Trip) {
+        arrivalsTask?.cancel()
+        arrivals = []
+        let southbound = trip.stops[0].id < trip.stops[1].id  // track order = north->south
+        arrivalsTask = Task {
+            while !Task.isCancelled {
+                if let a = try? await ArrivalsService.arrivals(route: trip.route,
+                                                              stopId: trip.boarding.id,
+                                                              southbound: southbound) {
+                    await MainActor.run { arrivals = a }
+                }
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+}
+
+/// Kills the wrong-side-of-the-train problem: direction, terminus, live
+/// arrivals, and a first-stop sanity check before you board.
+struct BoardingCard: View {
+    let trip: Trip
+    let arrivals: [TimeInterval]
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("\(trip.totalStops) stops • \(trip.directionLabel) toward \(trip.stops[trip.stops.count - 1].name)")
+                .font(.subheadline.weight(.semibold))
+            if trip.stops.count > 1 {
+                Text("Right side? First stop after boarding is \(trip.stops[1].name) — if the platform sign disagrees, cross over.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+            if !arrivals.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .foregroundStyle(.green)
+                    Text("Next \(trip.route): " + arrivals.prefix(3)
+                        .map { "\(max(1, Int($0 / 60))) min" }
+                        .joined(separator: ", "))
+                }
+                .font(.caption.weight(.medium))
+            }
+        }
     }
 }
 
