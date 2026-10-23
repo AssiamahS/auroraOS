@@ -1,5 +1,7 @@
 # Aurora
 
+**Install:** open [assiamahs.github.io/auroraOS/install.html](https://assiamahs.github.io/auroraOS/install.html) in Safari on your iPhone.
+
 NYC subway navigator for iPhone + Apple Watch.
 
 - Pick a line, boarding station, and destination on the map (real MTA station data, all 24 routes, 496 stations in track order).
